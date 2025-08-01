@@ -54,6 +54,7 @@ body {
   margin: 32px 0 18px 0;
   display: flex;
   justify-content: center;
+  align-items: center;
 }
 
 .search-section select {
@@ -73,6 +74,26 @@ body {
 
 .search-section select:focus {
   outline: none;
+  border-color: #ff003b;
+}
+
+#productSearch {
+  padding: 14px 14px;
+  font-size: 17px;
+  border: 2px solid #e3a535;
+  border-radius: 8px;
+  outline: none;
+  color: #222;
+  background: #fff;
+  font-family: inherit;
+  font-weight: 400;
+  transition: border 0.2s;
+  margin-right: 12px;
+  box-shadow: 0 2px 8px #e3a53522;
+  min-width: 0;
+}
+
+#productSearch:focus {
   border-color: #ff003b;
 }
 

@@ -5,6 +5,7 @@ const chatForm = document.getElementById("chatForm");
 const chatWindow = document.getElementById("chatWindow");
 const selectedProductsList = document.getElementById("selectedProductsList");
 const generateRoutineBtn = document.getElementById("generateRoutine");
+const productSearch = document.getElementById("productSearch");
 
 /* Array to keep track of selected products */
 let selectedProducts = [];
@@ -19,6 +20,11 @@ productsContainer.innerHTML = `
   </div>
 `;
 
+/* Store the latest loaded products for filtering */
+let allProducts = [];
+let currentCategory = "";
+let currentSearch = "";
+
 /* Load product data from JSON file */
 async function loadProducts() {
   const response = await fetch("products.json");
@@ -26,11 +32,48 @@ async function loadProducts() {
   return data.products;
 }
 
+/* Filter products based on category and search */
+function filterProducts(products, category, search) {
+  return products.filter((product) => {
+    // Category filter (if set)
+    const matchesCategory = category ? product.category === category : true;
+    // Search filter (if set)
+    const searchText = search.trim().toLowerCase();
+    const matchesSearch = searchText
+      ? (product.name + " " + product.brand + " " + product.description)
+          .toLowerCase()
+          .includes(searchText)
+      : true;
+    return matchesCategory && matchesSearch;
+  });
+}
+
+/* Display products using current filters */
+function updateProductGrid() {
+  const filtered = filterProducts(allProducts, currentCategory, currentSearch);
+  displayProducts(filtered);
+}
+
+/* Category filter event */
+categoryFilter.addEventListener("change", (e) => {
+  currentCategory = e.target.value;
+  updateProductGrid();
+});
+
+/* Product search event */
+productSearch.addEventListener("input", (e) => {
+  currentSearch = e.target.value;
+  updateProductGrid();
+});
+
 /* Create HTML for displaying product cards */
 function displayProducts(products) {
-  productsContainer.innerHTML = products
-    .map(
-      (product) => `
+  productsContainer.innerHTML =
+    products.length === 0
+      ? `<div class="placeholder-message">No products found.</div>`
+      : products
+          .map(
+            (product) => `
     <div class="product-card${
       selectedProducts.some((p) => p.id === product.id) ? " selected" : ""
     }${expandedProductId === product.id ? " expanded" : ""}" 
@@ -50,8 +93,8 @@ function displayProducts(products) {
       </div>
     </div>
   `
-    )
-    .join("");
+          )
+          .join("");
 
   // Add click event listeners to each product card for selection
   const cards = productsContainer.querySelectorAll(".product-card");
@@ -133,25 +176,11 @@ function renderSelectedProducts() {
   });
 }
 
-/* Filter and display products when category changes */
-categoryFilter.addEventListener("change", async (e) => {
-  const products = await loadProducts();
-  const selectedCategory = e.target.value;
-
-  /* filter() creates a new array containing only products 
-     where the category matches what the user selected */
-  const filteredProducts = products.filter(
-    (product) => product.category === selectedCategory
-  );
-
-  displayProducts(filteredProducts);
-});
-
-/* Initial render of selected products */
-renderSelectedProducts();
-
-/* Store the conversation history for the chat */
-let messages = [];
+/* On page load, fetch all products and show placeholder or filtered list */
+(async function () {
+  allProducts = await loadProducts();
+  updateProductGrid();
+})();
 
 /* When the user clicks "Generate Routine", send selected products to OpenAI and show the routine */
 generateRoutineBtn.addEventListener("click", async () => {
@@ -177,7 +206,7 @@ generateRoutineBtn.addEventListener("click", async () => {
     {
       role: "system",
       content:
-        "You are a helpful skincare and beauty advisor. Create a step-by-step routine using only the provided products. Explain the order and purpose of each product in a friendly, clear way for beginners. Only use the products listed. If the user asks a follow-up, only answer questions about the routine, skincare, haircare, makeup, fragrance, or related topics.",
+        "You are a helpful skincare and beauty advisor. Create a step-by-step routine using only the provided products. Explain the order and purpose of each product in a friendly, clear way for beginners. Only use the products listed. If the user asks a follow-up, only answer questions about the routine, skincare, haircare, makeup, fragrance, or related topics. Use web search to provide up-to-date information and include links or citations when possible. If the user asks about current prices, use web search to find and cite the most recent prices from reputable sources.",
     },
     {
       role: "user",
@@ -199,10 +228,11 @@ generateRoutineBtn.addEventListener("click", async () => {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model: "gpt-4o",
+          model: "gpt-4o-search-preview",
           messages: messages,
           max_tokens: 500,
           temperature: 0.7,
+          tools: [{ type: "web_search" }],
         }),
       }
     );
@@ -222,7 +252,7 @@ generateRoutineBtn.addEventListener("click", async () => {
         role: "assistant",
         content: data.choices[0].message.content,
       });
-      // Show the routine in the chat window
+      // Show the routine in the chat window (with links/citations if present)
       chatWindow.innerHTML = `<div style="white-space:pre-line;">${data.choices[0].message.content}</div>`;
     } else {
       chatWindow.innerHTML =
@@ -267,10 +297,11 @@ chatForm.addEventListener("submit", async (e) => {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model: "gpt-4o",
+          model: "gpt-4o-search-preview",
           messages: messages,
           max_tokens: 500,
           temperature: 0.7,
+          tools: [{ type: "web_search" }],
         }),
       }
     );
